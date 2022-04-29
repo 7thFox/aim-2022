@@ -1,125 +1,9 @@
+#include "print.h"
+#include "read.h"
+#include "structs.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-// Types and enums
-typedef enum {
-    T_Object,
-    T_Array,
-    T_String,
-    T_Number,
-    T_Null,
-    T_Boolean,
-} ValueType;
-
-typedef struct {
-    ValueType type;
-    void     *value;
-} JsonValue;
-
-typedef struct {
-    char *value;
-} JsonString;
-
-typedef struct {
-    long value;
-} JsonNumber;
-
-typedef struct {
-    bool value;
-} JsonBoolean;
-
-typedef struct {
-    JsonString *name;
-    JsonValue  *value;
-} JsonProperty;
-
-typedef struct {
-    int            count;
-    JsonProperty **values;
-} JsonObject;
-
-typedef struct {
-    int         count;
-    JsonValue **values;
-} JsonArray;
-
-void *verify(void *ptr) {
-    if (!ptr) {
-        fprintf(stderr, "malloc/realloc failed\n");
-        exit(1);
-    }
-    return ptr;
-}
-
-#define BUFFER_CAP 4096
-FILE  *file;
-char   buffer[BUFFER_CAP];
-size_t buff_pos;
-size_t buff_size;
-char   prev_char;
-
-long disp_line = 1;
-long disp_pos  = 0;
-
-void _nextBuff() {
-    if (feof(file)) {
-        fprintf(stderr, "ERROR(%i,%i): Unexpected EOF\n", disp_line, disp_pos);
-        exit(1);
-    }
-
-    buff_size = fread(buffer, sizeof(char), BUFFER_CAP, file);
-    if (ferror(file) != 0) {
-        fprintf(stderr, "Error reading file\n");
-        exit(1);
-    }
-    buff_pos = 0;
-}
-
-char next() {
-    if (buff_pos >= buff_size) {
-        _nextBuff();
-    }
-    prev_char = buffer[buff_pos];
-    buff_pos++;
-
-    if (prev_char == '\n') {
-        disp_line++;
-        disp_pos = 0;
-    }
-    else {
-        disp_pos++;
-    }
-
-    return prev_char;
-}
-
-char peek() {
-    if (buff_pos >= buff_size) {
-        if (feof(file)) {
-            return EOF;
-        }
-        _nextBuff();
-    }
-    return buffer[buff_pos];
-}
-
-char prev() {
-    return prev_char;
-}
-
-void skip_whitespace() {
-    for (char c = peek(); c == ' ' || c == '\t' || c == '\r' || c == '\n'; c = peek()) {
-        next();
-    }
-}
-
-void assert_char(char expected) {
-    if (next() != expected) {
-        fprintf(stderr, "ERROR(%i,%i): Expected %c, got %c\n", disp_line, disp_pos, expected, prev());
-        exit(1);
-    }
-}
 
 JsonValue   *parse_start();
 JsonValue   *parse_value();
@@ -131,66 +15,12 @@ JsonBoolean *parse_true();
 JsonBoolean *parse_false();
 void         parse_null();
 
-void _indent(int indent) {
-    printf("%.*s", indent * 2, "                                                  ");
-}
-void print_string(JsonString *v, const char *prefix) {
-    printf("%s \"%s\"", prefix, v->value);
-}
-void print_value(JsonValue *v, int indent) {
-    switch (v->type) {
-        case T_Object:
-            print_object(v->value, indent);
-            break;
-        case T_Array:
-            print_array(v->value, indent);
-            break;
-        case T_String:
-            print_string(v->value, "STRING");
-            break;
-        case T_Number:
-            printf("NUMBER \"%i\"", ((JsonNumber *)(v->value))->value);
-            break;
-        case T_Null:
-            printf("NULL");
-            break;
-        case T_Boolean:
-            if (((JsonBoolean *)(v->value))->value) {
-                printf("TRUE");
-            }
-            else {
-                printf("FALSE");
-            }
-            break;
-        default:
-            fprintf(stderr, "Bad Type\n");
-            exit(1);
-            break;
+void *verify(void *ptr) {
+    if (!ptr) {
+        fprintf(stderr, "malloc/realloc failed\n");
+        exit(1);
     }
-}
-void print_object(JsonObject *v, int indent) {
-    printf("OBJECT {\n");
-    for (int i = 0; i < v->count; i++) {
-        JsonProperty *p = v->values[i];
-        _indent(indent + 1);
-        print_string(p->name, "PROP");
-        printf(" : ");
-        print_value(p->value, indent + 1);
-        printf("\n");
-    }
-    _indent(indent);
-    printf("}");
-}
-void print_array(JsonArray *v, int indent) {
-    printf("ARRAY [\n");
-    for (int i = 0; i < v->count; i++) {
-        _indent(indent + 1);
-        printf("[%i] : ", i);
-        print_value(v->values[i], indent + 1);
-        printf("\n");
-    }
-    _indent(indent);
-    printf("]");
+    return ptr;
 }
 
 int main(int argc, char *argv[]) {
